@@ -1,5 +1,6 @@
 package edu.cnm.deepdive.animals.controller;
 
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.webkit.WebResourceRequest;
@@ -52,14 +53,17 @@ public class ImageFragment extends Fragment {
     settings.setDisplayZoomControls(false);
     settings.setUseWideViewPort(true);
     settings.setLoadWithOverviewMode(true);
-    new Retriever().start();
+    new RetrieveImageTask().execute();
 
   }
 
-  private class Retriever extends Thread {
+  private class RetrieveImageTask extends AsyncTask<Void, Void, List<Animal>> {
+
+    private AnimalService animalService;
 
     @Override
-    public void run() {
+    protected void onPreExecute() {
+      super.onPreExecute();
       Gson gson = new GsonBuilder()
           .excludeFieldsWithoutExposeAnnotation()
           .create();
@@ -67,34 +71,47 @@ public class ImageFragment extends Fragment {
           .baseUrl(BuildConfig.BASE_URL)
           .addConverterFactory(GsonConverterFactory.create(gson))
           .build();
-      AnimalService animalService = retrofit.create(AnimalService.class);
+
+      animalService = retrofit.create(AnimalService.class);
+    }
+
+    @Override
+    protected List<Animal> doInBackground(Void... voids) {
 
       try {
 
         Response<List<Animal>> response = animalService.getAnimals(BuildConfig.CLIENT_KEY)
             .execute();
-        if(response.isSuccessful()) {
+        if (response.isSuccessful()) {
           List<Animal> animals = response.body();
           assert animals != null;
-          final String url = animals.get(0).getUrl();
-          getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-              contentView.loadUrl(url);
-            }
-          });
+          return animals;
+
+
         } else {
+          cancel (true);
           Log.e("AnimalService", response.message());
         }
 
-
-
-      }catch (IOException e) {
+      } catch (IOException e) {
         Log.e("AnimalService", e.getMessage(), e);
+        cancel(true);
       }
+      return null;
+    }
+
+    @Override
+    protected void onPostExecute(List<Animal> animals) {
+      super.onPostExecute(animals);
+      final String url = animals.get(16).getUrl();
+      contentView.loadUrl(url);
+        }
 
     }
 
-  }
-
 }
+
+
+
+
+
